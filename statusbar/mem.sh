@@ -1,10 +1,11 @@
 #!/usr/bin/sh
-#mem=$(free -h | awk '/^Mem/ { print $3"/"$2 }' | sed s/i//g)
+case $BUTTON in
+	1) notify-send "RAM usage" "$(ps axch -o cmd,%mem --sort=-%mem | head)" ;;
+	3) st -e htop ;;
+esac
+
 used=$(free -m | awk '/^Mem/ { print $3 }')
 used_b=$(free -b | awk '/^Mem/ { print $3 }')
 total_b=$(free -b | awk '/^Mem/ { print $2 }')
-
 percent=$(echo "scale=1;100*$used_b/$total_b" | bc)
-
 echo "$used MB($percent%)"
-#printf "$used.MB ($percent%%)"
