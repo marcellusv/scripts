@@ -1,15 +1,20 @@
 xfreerdp3 \
+	/log-level:FATAL \
+	/v:ws001 \
+	/u:marcellusv@gateway.com \
 	/gateway:g:remote.gateway.com \
-	/v:ws001.domain.com \
-	/sound:sys:pulse \
-	/microphone:sys:pulse \
-	/audio-mode:auto \
+	/audio-mode:1 \
 	/size:1920x1080 \
 	/compression \
 	/compression-level:2 \
+	/gdi:hw \
+	/gfx:AVC444:on \
+	/frame-ack:on \
 	/bpp:8 \
-	-themes \
+	/auth-pkg-list:!kerberos \
+	+clipboard \
+	+dynamic-resolution \
+	-wallpaper \
 	-fonts \
-
-
-
+	-themes \
+	-decorations \
