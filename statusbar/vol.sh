@@ -76,11 +76,18 @@ select_sink() {
 	activate_sink $(echo $choice | awk '{print $NF}')
 }
 
-
+summary_sinks() {
+	get_sinks
+	sinks=""
+	for i in "${!sinks_name[@]}"; do
+		sinks+="${sinks_description[$i]}|${volume[$i]}|${sinks_battery[$i]}\n"
+	done
+	notify-send "Sink info" "$(echo -e "$sinks" | column -t -s "|")"
+}
 
 
 case $BUTTON in
-	1) notify-send "Sinks info" "$(pactl list sinks | grep -e "Sink #" -e Name: -e Description: -e ^[[:space:]]Volume:)" ;;
+	1) summary_sinks ;;
 	3) select_sink ;;
 esac
 

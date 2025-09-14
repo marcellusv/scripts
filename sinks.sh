@@ -1,15 +1,25 @@
 #!/usr/bin/sh
 
-add_sink() {
+sink_active=$(pacmd list-sinks | awk '/\*/ {getline; print $2}' | sed 's/[<>]//g')
+
+sinks_id=()
+sinks_name=()
+sinks_description=()
+sinks_volume=()
+sinks_battery=()
+
+
+add_sinks() {
+	# Define a placeholder for the sinks without battery indicator
 	if [[ $batt == "" ]]; then
 		batt="-"
 	fi
 	
-	sink_ids+=("$id")
-	sink_names+=("$name")
-	sink_descriptions+=("$desc")
-	sink_volumes+=("$vol")
-	sink_batteries+=("$batt")
+	sinks_id+=("$id")
+	sinks_name+=("$name")
+	sinks_description+=("$desc")
+	sinks_volume+=("$vol")
+	sinks_battery+=("$batt")
 
 	id=""
 	name=""
@@ -18,53 +28,56 @@ add_sink() {
 	batt=""
 }
 
-# numb=""
-# name=""
-# desc=""
-# volu=""
-# batt=""
+get_sinks() {
+	sink_info=$(pactl list sinks | grep -e "Sink #" -e "Name:" -e "Description:" -e "^[[:space:]]Volume:" -e "bluetooth.battery")
 
-sink_ids=()
-sink_names=()
-sink_descriptions=()
-sink_volumes=()
-sink_batteries=()
+	while IFS= read -r line; do
+		if [[ $line == *"Sink"* ]]; then
+			# Logic steps:
+			# 1. First sink? Skip add_sinks and start collecting data of the first sink.
+			# 2. New sink? Save the previous sink data before collecting data of the next sink. Note, single loop variable (id,name,desc,vol,batt) are reset.
+			if [[ $name != "" ]]; then
+				add_sinks
+			fi
 
-
-sink_active=$(pacmd list-sinks | awk '/\*/ {getline; print $2}' | sed 's/[<>]//g')
-
-sink_info=$(pactl list sinks | grep -e "Sink #" -e "Name:" -e "Description:" -e "^[[:space:]]Volume:" -e "bluetooth.battery")
-
-while IFS= read -r line; do
-	if [[ $line == *"Sink"* ]]; then
-		# First, save the previous sink data before continueing with the next sink.
-		# Note: This will trigger a reset of the single loop variables.
-		if [[ $name != "" ]]; then
-			add_sink
+			id=("$(echo "$line" | awk -F' #' '{print $2}' )")
+		elif [[ $line == *"Name"* ]]; then
+			name=("$(echo "$line" | awk -F': ' '{print $2}' )")
+		elif [[ $line == *"Description"* ]]; then
+			desc=("$(echo "$line" | awk -F': ' '{print $2}' )")
+		elif [[ $line == *"Volume"* ]]; then
+			vol=("$(echo "$line" | awk '{print $5}' )")
+		elif [[ $line == *"bluetooth.battery"* ]]; then
+			batt=("$(echo "$line" | awk -F'= ' '{print $2}' | sed 's/"//g' )")
 		fi
 
-		id=("$(echo "$line" | awk -F' #' '{print $2}' )")
-	elif [[ $line == *"Name"* ]]; then
-		name=("$(echo "$line" | awk -F': ' '{print $2}' )")
-	elif [[ $line == *"Description"* ]]; then
-		desc=("$(echo "$line" | awk -F': ' '{print $2}' )")
-	elif [[ $line == *"Volume"* ]]; then
-		vol=("$(echo "$line" | awk '{print $5}' )")
-	elif [[ $line == *"bluetooth.battery"* ]]; then
-		batt=("$(echo "$line" | awk -F'= ' '{print $2}' | sed 's/"//g' )")
+
+	done <<< "$sink_info"
+
+	# Save the sink data from the final loop
+	add_sinks
+}
+
+activate_sink() {
+	if [[ $1 != $sink_active ]]; then
+		pactl set-default-sink $1
+		notify-send -h string:bgcolor:#388e3c -a pactl -t 3000 "Set default sink" "$1"
+	else
+		notify-send -h string:bgcolor:#ff6900 -a pactl -t 3000 "Set default sink" "Cancelled, sink already active $1"
 	fi
+}
+
+select_sink() {
+	get_sinks
+	choices=""
+	for i in "${!sinks_name[@]}"; do
+		choices+="${sinks_description[$i]}|${sinks_name[$i]}\n"
+	done
+	choice=$(echo -e "$choices" | column -t -s "|" | dmenu -c -l 10 -i -p "Select sink:")
+	activate_sink $(echo $choice | awk '{print $NF}')
+}
+
+select_sink
 
 
-done <<< "$sink_info"
-
-# Save the sink data from the final loop
-add_sink
-
-
-
-# Fetch the indices with '!'
-for i in "${!sink_names[@]}"; do
-	echo "${sink_ids[$i]}) ${sink_descriptions[$i]} ${sink_names[$i]} ${sink_volumes[$i]} ${sink_batteries[$i]}"
-done
-
-echo $sink_active
+# echo $sink_active
